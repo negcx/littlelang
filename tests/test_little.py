@@ -3,7 +3,7 @@ from littlelang import Little
 
 
 @pytest.fixture
-def base_little():
+def base_little() -> Little:
     return Little()
 
 
@@ -20,6 +20,10 @@ def test_float(base_little: Little):
 
 def test_string(base_little: Little):
     assert base_little.exec('"Hello, world!"') == "Hello, world!"
+
+
+def test_string_escapes(base_little: Little):
+    assert base_little.exec('"\\n\\n\\t\\\\"') == "\n\n\t\\"
 
 
 def test_symbol(base_little: Little):
