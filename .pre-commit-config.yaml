@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-merge-conflict
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: poetry run ruff
+        language: python
+        "types_or": [python, pyi]
+        require_serial: true
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: black
+        name: black
+        entry: poetry run black
+        "types_or": [python, pyi]
+        language: python
+      - id: mypy
+        name: mypy
+        entry: poetry run mypy .
+        "types_or": [python, pyi]
+        language: python
+        pass_filenames: false

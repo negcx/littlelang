@@ -9,8 +9,8 @@ What types of "things" do we have?
 * Node reference '()
 """
 
-from typing import Union
 from dataclasses import dataclass
+from typing import Any, Callable, List, Union
 
 
 @dataclass
@@ -50,7 +50,7 @@ class Environment:
         """Define a new identifier in this scope."""
         if name in self._env:
             raise IdentifierAlreadyExists(name)
-        self._env = value
+        self._env[name] = value
 
     def get(self, name):
         if name not in self._env:
@@ -96,6 +96,7 @@ class Symbol(Literal):
     pass
 
 
+@dataclass
 class Identifier(Node):
     """Bound variable names from the Environment within Little."""
 
@@ -104,7 +105,7 @@ class Identifier(Node):
 
 @dataclass
 class ParentNode(Node):
-    children: list[Node]
+    children: List[Node]
 
 
 class Expression(ParentNode):
@@ -134,9 +135,19 @@ class Quoted(Node):
     node: Node
 
 
+@dataclass
+class QuotedRuntime(Node):
+    node: Node
+    env: Environment
+    exec: Callable[[Environment, Node], Any]
+
+
 class LittleSyntaxError(Exception):
     def __init__(
-        self, msg, start_pos: Position | None = None, end_pos: Position | None = None
+        self,
+        msg=None,
+        start_pos: Position | None = None,
+        end_pos: Position | None = None,
     ):
         super().__init__(msg)
         self.start_pos = start_pos
@@ -159,13 +170,17 @@ class UnexpectedEOF(LittleSyntaxError):
     pass
 
 
+class MissingMapValue(LittleSyntaxError):
+    pass
+
+
 class Parser:
     WHITESPACE = [" ", "\t", "\r", "\n", "\t", ","]
-    END_OF_TOKEN = [*WHITESPACE, "[", "]", "{", "}"]
+    END_OF_TOKEN = [*WHITESPACE, "[", "]", "{", "}", "(", ")"]
     IDENTIFIER_CHARACTERS = (
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz"
-        "_-/*+-!?$:><="
+        "_-/*+-!?$:><=;"
         "0123456789"
     )
 
@@ -255,11 +270,65 @@ class Parser:
             identifier += ch
         return identifier
 
+    def _identifier(self) -> Identifier | Literal:
+        start_pos = self.pos
+
+        match self._identifier_string():
+            case "None":
+                return Literal(value=None, start_pos=start_pos, end_pos=self.pos)
+            case "True":
+                return Literal(value=True, start_pos=start_pos, end_pos=self.pos)
+            case "False":
+                return Literal(value=False, start_pos=start_pos, end_pos=self.pos)
+            case identifier:
+                return Identifier(
+                    name=identifier, start_pos=start_pos, end_pos=self.pos
+                )
+
     def _symbol(self) -> Literal:
         start_pos = self.pos
         self._expect_consume(":")
         symbol = self._identifier_string()
         return Symbol(value=symbol, start_pos=start_pos, end_pos=self.pos)
+
+    def _children(self, start_char, end_char) -> list[Node]:
+        children = []
+        self._expect_consume(start_char)
+        while not self._eof() and self._peek() != end_char:
+            if node := self._node():
+                children.append(node)
+        if self._eof() and self._peek() != end_char:
+            raise ExpectedToken(end_char, start_pos=self.pos, end_pos=self.pos)
+        self._expect_consume(end_char)
+
+        return children
+
+    def _quoted(self) -> Quoted:
+        start_pos = self.pos
+        self._expect_consume("'")
+        node = self._node()
+        if node is None:
+            raise ExpectedToken(start_pos=start_pos, end_pos=self.pos)
+        return Quoted(node=node, start_pos=start_pos, end_pos=self.pos)
+
+    def _vector(self) -> Vector:
+        start_pos = self.pos
+        children = self._children("[", "]")
+        return Vector(children=children, start_pos=start_pos, end_pos=self.pos)
+
+    def _map(self) -> Map:
+        start_pos = self.pos
+        children = self._children("{", "}")
+
+        if len(children) % 2 != 0:
+            raise MissingMapValue(start_pos=start_pos, end_pos=self.pos)
+
+        return Map(children=children, start_pos=start_pos, end_pos=self.pos)
+
+    def _expression(self) -> Expression:
+        start_pos = self.pos
+        children = self._children("(", ")")
+        return Expression(children=children, start_pos=start_pos, end_pos=self.pos)
 
     def _node(self) -> Node | None:
         ch = self._peek()
@@ -272,8 +341,20 @@ class Parser:
                 return self._string()
             case ":":
                 return self._symbol()
+            case "[":
+                return self._vector()
+            case "{":
+                return self._map()
+            case "(":
+                return self._expression()
+            case _ if ch in Parser.IDENTIFIER_CHARACTERS:
+                return self._identifier()
+            case "'":
+                return self._quoted()
             case _:
-                self._consume()
+                raise UnexpectedToken(ch, start_pos=self.pos, end_pos=self.pos)
+
+        return None
 
     def parse(self) -> list[Node]:
         nodes = []
@@ -283,10 +364,41 @@ class Parser:
         return nodes
 
 
-def _exec(env: Environment, node: Node) -> any:
+def _exec(env: Environment, node: Node) -> Any:
     match node:
         case Literal():
             return node.value
+        case Vector():
+            return list(map(lambda child: _exec(env, child), node.children))
+        case Map():
+            values = list(map(lambda child: _exec(env, child), node.children))
+            return dict(
+                map(
+                    lambda i: (values[i], values[i + 1]),
+                    range(0, len(values), 2),
+                )
+            )
+        case Expression():
+            values = list(map(lambda child: _exec(env, child), node.children))
+
+            if len(values) == 0:
+                raise LittleRuntimeError("Expressions must have at least one element")
+            if not callable(values[0]):
+                raise LittleRuntimeError(
+                    "The first element of an expression must be a function"
+                )
+            head, *tail = values
+            return head(*tail)
+        case Identifier():
+            return env.get(node.name)
+        case Quoted():
+            return QuotedRuntime(
+                node=node.node,
+                env=env,
+                exec=_exec,
+                start_pos=node.start_pos,
+                end_pos=node.end_pos,
+            )
         case _:
             return LittleRuntimeError("Not yet implemented!")
 
@@ -297,5 +409,4 @@ class Little:
 
     def exec(self, code: str):
         parser = Parser(code)
-        nodes = parser.parse()
-        return list(map(lambda node: _exec(self.env, node), nodes))[-1]
+        return list(map(lambda node: _exec(self.env, node), parser.parse()))[-1]

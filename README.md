@@ -1,17 +1,14 @@
+# Little Lang
 
-# Features we might want?
+This is a little language intended to be easy to sandbox, understand, and extend.
 
-* Multi-arity functions
-* Variadic functions
-* Namespaces
-* Literal dict
-* Literal list
-* "Keyword"/"Atom"
+## Usage
 
-# Random todos
-[ ] Convert between 'nil' and 'None'
-[ ] REPL
-[ ] Immutable data structures
-[ ] literal list
-[ ] literal dict
-[ ] keywords
+```Python
+from littlelang import LittleWithStd
+
+little = LittleWithStd()
+
+little.exec('(print "Hello, world!")')
+
+```

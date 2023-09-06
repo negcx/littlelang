@@ -6,7 +6,7 @@ authors = ["Kyle Johnson <negatecx@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -15,7 +15,18 @@ pytest-watch = "^4.2.0"
 black = "^23.7.0"
 ruff = "^0.0.287"
 ipython = "^8.15.0"
+mypy = "^1.5.1"
+pre-commit = "^3.4.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+src = ["src"]
+target-version = "py311"
+line-length = 92
+select = ["E", "F", "I", "B"]
+
+[tool.black]
+line-length = 88
