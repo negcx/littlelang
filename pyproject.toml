@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "littlelang"
+version = "0.1.0"
+description = ""
+authors = ["Kyle Johnson <negatecx@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-watch = "^4.2.0"
+black = "^23.7.0"
+ruff = "^0.0.287"
+ipython = "^8.15.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
