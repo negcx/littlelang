@@ -272,18 +272,9 @@ class Parser:
 
     def _identifier(self) -> Identifier | Literal:
         start_pos = self.pos
-
-        match self._identifier_string():
-            case "None":
-                return Literal(value=None, start_pos=start_pos, end_pos=self.pos)
-            case "True":
-                return Literal(value=True, start_pos=start_pos, end_pos=self.pos)
-            case "False":
-                return Literal(value=False, start_pos=start_pos, end_pos=self.pos)
-            case identifier:
-                return Identifier(
-                    name=identifier, start_pos=start_pos, end_pos=self.pos
-                )
+        return Identifier(
+            name=self._identifier_string(), start_pos=start_pos, end_pos=self.pos
+        )
 
     def _symbol(self) -> Literal:
         start_pos = self.pos
@@ -406,6 +397,9 @@ def _exec(env: Environment, node: Node) -> Any:
 class Little:
     def __init__(self):
         self.env = Environment()
+        self.env.define("None", None)
+        self.env.define("True", True)
+        self.env.define("False", False)
 
     def exec(self, code: str):
         parser = Parser(code)

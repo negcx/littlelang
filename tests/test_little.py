@@ -124,12 +124,13 @@ def test_unmapped_items_example(std_little: Little):
     assert (
         std_little.exec(
             """
-(<
-  0
-  (len
-    (filter
-      (get receipt :items)
-      (fn [:item] '(== None (get item :invoice_line_id))))))
+(< 0
+   (len (filter (get receipt
+                     :items)
+                (fn [:item]
+                    '(== None
+                         (get item
+                              :invoice_line_id))))))
                     """
         )
         is True
