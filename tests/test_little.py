@@ -135,3 +135,63 @@ def test_unmapped_items_example(std_little: Little):
         )
         is True
     )
+
+
+def test_json_friendly_syntax_support(std_little: Little):
+    assert (
+        std_little.exec(
+            """
+{
+  "glossary": {
+    "title": "example glossary",
+    "GlossDiv": {
+      "title": "S",
+      "GlossList": {
+        "GlossEntry": {
+          "ID": "SGML",
+          "SortAs": "SGML",
+          "GlossTerm": "Standard Generalized Markup Language",
+          "Acronym": "SGML",
+          "Abbrev": "ISO 8879:1986",
+          "GlossDef": {
+            "para": null,
+            "GlossSeeAlso": [
+              true,
+              false
+            ]
+          },
+          "GlossSee": "markup"
+        }
+      }
+    }
+  }
+}
+                    """
+        )
+        == {
+            "glossary": {
+                "title": "example glossary",
+                "GlossDiv": {
+                    "title": "S",
+                    "GlossList": {
+                        "GlossEntry": {
+                            "ID": "SGML",
+                            "SortAs": "SGML",
+                            "GlossTerm": "Standard Generalized Markup Language",
+                            "Acronym": "SGML",
+                            "Abbrev": "ISO 8879:1986",
+                            "GlossDef": {
+                                "para": None,
+                                "GlossSeeAlso": [True, False],
+                            },
+                            "GlossSee": "markup",
+                        }
+                    },
+                },
+            }
+        }
+    )
+
+
+def test_elixir_style_map_support(std_little: Little):
+    assert std_little.exec('{hello: "Hi", there: 3}') == {"hello": "Hi", "there": 3}

@@ -180,7 +180,7 @@ class Parser:
     IDENTIFIER_CHARACTERS = (
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz"
-        "_-/*+-!?$:><=;"
+        "_-/*+-!?$><=;:"
         "0123456789"
     )
 
@@ -258,6 +258,9 @@ class Parser:
                         s += escape
 
         self._expect_consume('"')
+        # JSON map style support
+        if self._peek() == ":":
+            self._expect_consume(":")
 
         return Literal(value=s, start_pos=start_pos, end_pos=self.pos)
 
@@ -272,9 +275,13 @@ class Parser:
 
     def _identifier(self) -> Identifier | Literal:
         start_pos = self.pos
-        return Identifier(
-            name=self._identifier_string(), start_pos=start_pos, end_pos=self.pos
-        )
+
+        # Elixir style map support
+        name = self._identifier_string()
+        if name[-1] == ":":
+            name = name[0:-1]
+            return Symbol(value=name, start_pos=start_pos, end_pos=self.pos)
+        return Identifier(name=name, start_pos=start_pos, end_pos=self.pos)
 
     def _symbol(self) -> Literal:
         start_pos = self.pos
@@ -324,8 +331,6 @@ class Parser:
     def _node(self) -> Node | None:
         ch = self._peek()
         match ch:
-            case _ if ch in Parser.WHITESPACE:
-                self._consume()
             case _ if ch.isdigit():
                 return self._number()
             case '"':
@@ -342,6 +347,8 @@ class Parser:
                 return self._identifier()
             case "'":
                 return self._quoted()
+            case _ if ch in Parser.WHITESPACE:
+                self._consume()
             case _:
                 raise UnexpectedToken(ch, start_pos=self.pos, end_pos=self.pos)
 
@@ -400,6 +407,9 @@ class Little:
         self.env.define("None", None)
         self.env.define("True", True)
         self.env.define("False", False)
+        self.env.define("null", None)
+        self.env.define("true", True)
+        self.env.define("false", False)
 
     def exec(self, code: str):
         parser = Parser(code)
